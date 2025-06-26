@@ -1,7 +1,12 @@
+
+
 const express = require('express');
 const { spawn } = require('child_process');
 const app = express();
 const port = 3000;
+
+// For local development, you might use dotenv to load environment variables from a .env file
+// require('dotenv').config();
 
 // Serve static files from the 'public' directory
 app.use(express.static('public'));
@@ -17,20 +22,21 @@ app.post('/api/gemini', (req, res) => {
   }
 
   const geminiPath = '/opt/homebrew/bin/gemini';
-  const apiKey = 'AIzaSyAdtOk3B9vzQIzhxqMyB3WrHmN-OSy8UnY'; // Your Gemini API Key
+  // Read API key from environment variables for security
+  const apiKey = process.env.GEMINI_API_KEY;
 
   if (!apiKey) {
-    return res.status(500).json({ error: 'API key not set in server.js' });
+    return res.status(500).json({ error: 'GEMINI_API_KEY environment variable not set.' });
   }
 
   // Arguments for the gemini CLI command
-  // Using -d for debug output, -y for yolo mode (auto-accept)
-  const args = ['-p', prompt, '-y', '-d', '--telemetry=false']; 
+  // Removed -d (debug) flag for cleaner output
+  const args = ['-p', prompt, '-y', '--telemetry=false']; 
 
   // Spawn the gemini process, passing environment variables explicitly
   const child = spawn(geminiPath, args, {
     env: { ...process.env, GEMINI_API_KEY: apiKey },
-    shell: true // Use shell to ensure environment is loaded correctly
+    // Removed shell: true as it's generally not needed with explicit path and env
   });
 
   let output = '';
@@ -64,8 +70,14 @@ app.post('/api/gemini', (req, res) => {
         details: errorOutput || 'No stderr output'
       });
     }
-    // Otherwise, send the successful response
-    res.json({ response: output });
+    
+    // Filter out [DEBUG] lines for cleaner response
+    const lines = output.split('\n');
+    const filteredLines = lines.filter(line => !line.startsWith('[DEBUG]'));
+    const cleanedOutput = filteredLines.join('\n').trim();
+
+    // Send the cleaned successful response
+    res.json({ response: cleanedOutput });
   });
 });
 
