@@ -1,5 +1,3 @@
-
-
 const express = require('express');
 const { exec } = require('child_process');
 const app = express();
@@ -19,12 +17,12 @@ app.post('/api/gemini', (req, res) => {
   }
 
   // IMPORTANT: Sanitize prompt to prevent shell injection.
-  // This replaces single quotes to ensure the command is safe.
   const sanitizedPrompt = prompt.replace(/'/g, "'\\''");
 
   // Execute the command within a login shell ('bash -l') to ensure
   // the environment is loaded correctly, just like in your terminal.
-  const command = `bash -l -c "/opt/homebrew/bin/gemini -p '${sanitizedPrompt}' -y"`;
+  // Pass the GEMINI_API_KEY as an environment variable.
+  const command = `bash -l -c "GEMINI_API_KEY=AIzaSyAdtOk3B9vzQIzhxqMyB3WrHmN-OSy8UnY /opt/homebrew/bin/gemini -p '${sanitizedPrompt}' -y"`;
 
   console.log(`Executing command: ${command}`);
 
@@ -47,4 +45,3 @@ app.post('/api/gemini', (req, res) => {
 app.listen(port, () => {
   console.log(`Server listening at http://localhost:${port}`);
 });
-
