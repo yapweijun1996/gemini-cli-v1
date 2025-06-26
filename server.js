@@ -1,5 +1,5 @@
 const express = require('express');
-const { exec } = require('child_process');
+const { spawn } = require('child_process');
 const app = express();
 const port = 3000;
 
@@ -13,32 +13,59 @@ app.post('/api/gemini', (req, res) => {
   console.log(`Received prompt: "${prompt}"`);
 
   if (!prompt) {
-    return res.status(400).send({ error: 'Prompt is required' });
+    return res.status(400).json({ error: 'Prompt is required' });
   }
 
-  // IMPORTANT: Sanitize prompt to prevent shell injection.
-  const sanitizedPrompt = prompt.replace(/'/g, "'\\''");
+  const geminiPath = '/opt/homebrew/bin/gemini';
+  const apiKey = 'AIzaSyAdtOk3B9vzQIzhxqMyB3WrHmN-OSy8UnY'; // Your Gemini API Key
 
-  // Execute the command within a login shell ('bash -l') to ensure
-  // the environment is loaded correctly, just like in your terminal.
-  // Pass the GEMINI_API_KEY as an environment variable.
-  const command = `bash -l -c "GEMINI_API_KEY=AIzaSyAdtOk3B9vzQIzhxqMyB3WrHmN-OSy8UnY /opt/homebrew/bin/gemini -p '${sanitizedPrompt}' -y"`;
+  if (!apiKey) {
+    return res.status(500).json({ error: 'API key not set in server.js' });
+  }
 
-  console.log(`Executing command: ${command}`);
+  // Arguments for the gemini CLI command
+  // Using -d for debug output, -y for yolo mode (auto-accept)
+  const args = ['-p', prompt, '-y', '-d', '--telemetry=false']; 
 
-  exec(command, (error, stdout, stderr) => {
-    if (error) {
-      console.error(`exec error: ${error}`);
-      console.error(`stderr: ${stderr}`);
-      return res.status(500).send({ error: 'Failed to execute Gemini CLI', details: stderr || error.message });
+  // Spawn the gemini process, passing environment variables explicitly
+  const child = spawn(geminiPath, args, {
+    env: { ...process.env, GEMINI_API_KEY: apiKey },
+    shell: true // Use shell to ensure environment is loaded correctly
+  });
+
+  let output = '';
+  let errorOutput = '';
+
+  // Capture stdout data
+  child.stdout.on('data', (data) => {
+    output += data.toString();
+    console.log(`Gemini stdout: ${data.toString()}`);
+  });
+
+  // Capture stderr data
+  child.stderr.on('data', (data) => {
+    errorOutput += data.toString();
+    console.error(`Gemini stderr: ${data.toString()}`);
+  });
+
+  // Handle process errors (e.g., command not found)
+  child.on('error', (err) => {
+    console.error('Failed to start Gemini CLI process:', err);
+    res.status(500).json({ error: 'Failed to start Gemini CLI', details: err.message });
+  });
+
+  // Handle process exit
+  child.on('close', (code) => {
+    console.log(`Gemini CLI process exited with code ${code}`);
+    if (code !== 0) {
+      // If the process exited with an error code, send an error response
+      return res.status(500).json({
+        error: `Gemini CLI exited with code ${code}`,
+        details: errorOutput || 'No stderr output'
+      });
     }
-    
-    console.log(`Gemini stdout: ${stdout}`);
-    if (stderr) {
-        console.error(`Gemini stderr (non-fatal): ${stderr}`);
-    }
-
-    res.send({ response: stdout });
+    // Otherwise, send the successful response
+    res.json({ response: output });
   });
 });
 
