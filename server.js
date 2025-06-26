@@ -1,3 +1,5 @@
+
+
 const express = require('express');
 const { exec } = require('child_process');
 const app = express();
@@ -16,18 +18,28 @@ app.post('/api/gemini', (req, res) => {
     return res.status(400).send({ error: 'Prompt is required' });
   }
 
-  // Construct the command with the full path
-  const command = `/opt/homebrew/bin/gemini -p "${prompt}" -y`;
+  // IMPORTANT: Sanitize prompt to prevent shell injection.
+  // This replaces single quotes to ensure the command is safe.
+  const sanitizedPrompt = prompt.replace(/'/g, "'\\''");
+
+  // Execute the command within a login shell ('bash -l') to ensure
+  // the environment is loaded correctly, just like in your terminal.
+  const command = `bash -l -c "/opt/homebrew/bin/gemini -p '${sanitizedPrompt}' -y"`;
 
   console.log(`Executing command: ${command}`);
 
   exec(command, (error, stdout, stderr) => {
     if (error) {
       console.error(`exec error: ${error}`);
-      return res.status(500).send({ error: 'Failed to execute Gemini CLI', details: stderr });
+      console.error(`stderr: ${stderr}`);
+      return res.status(500).send({ error: 'Failed to execute Gemini CLI', details: stderr || error.message });
     }
+    
     console.log(`Gemini stdout: ${stdout}`);
-    console.error(`Gemini stderr: ${stderr}`);
+    if (stderr) {
+        console.error(`Gemini stderr (non-fatal): ${stderr}`);
+    }
+
     res.send({ response: stdout });
   });
 });
@@ -35,3 +47,4 @@ app.post('/api/gemini', (req, res) => {
 app.listen(port, () => {
   console.log(`Server listening at http://localhost:${port}`);
 });
+
