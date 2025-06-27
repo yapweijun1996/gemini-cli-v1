@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>SimplePDF Example</title>
+  <style>
+    #content {
+      width: 400px;
+      font-family: Helvetica, Arial, sans-serif;
+    }
+  </style>
+</head>
+<body>
+  <div id="content">
+    <h1 style="color: #336699">SimplePDF Demo</h1>
+    <p>This is a <b>minimal</b> example showing how <i>SimplePDF</i> converts HTML to a PDF file.</p>
+    <p style="font-size: 14px; color: green;">Styled text with different <u>decorations</u> and font sizes.</p>
+  </div>
+  <button id="download">Download PDF</button>
+
+  <script src="simplepdf.js"></script>
+  <script>
+    document.getElementById('download').addEventListener('click', function() {
+      const div = document.getElementById('content');
+      htmlToPdf(div, 'demo.pdf');
+    });
+  </script>
+</body>
+</html>
